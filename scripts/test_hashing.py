@@ -51,8 +51,7 @@ def main(config):
     print("Testing Start")
 
     res = {}
-
-    test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True)
+    breakpoint()
     test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True, one=config["one"])
     db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True)
 

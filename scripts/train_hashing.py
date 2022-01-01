@@ -15,6 +15,7 @@ from functions.hashing import get_hamm_dist, calculate_mAP
 from functions.loss.orthohash import OrthoHashLoss
 from utils import io
 from utils.misc import AverageMeter, Timer
+import matplotlib.pyplot as plt
 
 
 def get_hd(a, b):
@@ -37,7 +38,7 @@ def get_codebook(nclass, nbit, maxtries=10000, initdist=0.61, mindist=0.2, reduc
     count = 0
     currdist = initdist
     while i < nclass:
-        print(i, end='\r')
+        print(i, end="\r")
         c = torch.randn(nbit).sign()
         nobreak = True
         for j in range(i):
@@ -197,6 +198,16 @@ def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, retu
             end="\r",
         )
 
+        if kwargs and "one" in kwargs:
+            # default norm = 2
+            mean, std = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
+            testttt = NormalizeInverse(mean=mean, std=std)(data[0]) * 255
+            plt.imshow(testttt.int().permute(1, 2, 0))
+            plt.title(labels[0])
+            plt.show()
+            breakpoint()
+            break
+
     print()
     meters["total_time"].update(total_timer.total)
 
@@ -205,6 +216,22 @@ def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, retu
         return meters, res
 
     return meters
+
+
+class NormalizeInverse(torchvision.transforms.Normalize):
+    """
+    Undoes the normalization and returns the reconstructed images in the input domain.
+    """
+
+    def __init__(self, mean: List, std: List):
+        mean = torch.as_tensor(mean)
+        std = torch.as_tensor(std)
+        std_inv = 1 / (std + 1e-7)
+        mean_inv = -mean * std_inv
+        super().__init__(mean=mean_inv, std=std_inv)
+
+    def __call__(self, tensor) -> torch.Tensor:
+        return super().__call__(tensor.clone())
 
 
 def prepare_dataloader(config):
