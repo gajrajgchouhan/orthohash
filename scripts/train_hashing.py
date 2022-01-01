@@ -5,6 +5,8 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
+from typing import Any, List
+import torchvision
 
 import torch
 
@@ -51,9 +53,9 @@ def get_codebook(nclass, nbit, maxtries=10000, initdist=0.61, mindist=0.2, reduc
         if count >= maxtries:
             count = 0
             currdist -= reducedist
-            print('reduce', currdist, i)
+            print("reduce", currdist, i)
             if currdist < mindist:
-                raise ValueError('cannot find')
+                raise ValueError("cannot find")
 
         i += 1
     codebook = codebook[torch.randperm(nclass)]
@@ -61,7 +63,7 @@ def get_codebook(nclass, nbit, maxtries=10000, initdist=0.61, mindist=0.2, reduc
 
 
 def calculate_accuracy(logits, hamm_dist, labels, loss_param):
-    if loss_param['multiclass']:
+    if loss_param["multiclass"]:
         pred = logits.topk(5, 1, True, True)[1].t()
         correct = pred.eq(labels.argmax(1).view(1, -1).expand_as(pred))
         acc = correct[:5].view(-1).float().sum(0, keepdim=True) / logits.size(0)
@@ -76,9 +78,9 @@ def calculate_accuracy(logits, hamm_dist, labels, loss_param):
     return acc, cbacc
 
 
-def train_hashing(optimizer, model, codebook, train_loader, loss_param):
+def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param):
     model.train()
-    device = loss_param['device']
+    device = loss_param["device"]
     meters = defaultdict(AverageMeter)
     total_timer = Timer()
     timer = Timer()
@@ -115,33 +117,36 @@ def train_hashing(optimizer, model, codebook, train_loader, loss_param):
         total_timer.toc()
 
         # store results
-        meters['loss_total'].update(loss.item(), data.size(0))
-        meters['loss_ce'].update(criterion.losses['ce'].item(), data.size(0))
-        meters['loss_quan'].update(criterion.losses['quan'].item(), data.size(0))
-        meters['acc'].update(acc.item(), data.size(0))
-        meters['cbacc'].update(cbacc.item(), data.size(0))
+        meters["loss_total"].update(loss.item(), data.size(0))
+        meters["loss_ce"].update(criterion.losses["ce"].item(), data.size(0))
+        meters["loss_quan"].update(criterion.losses["quan"].item(), data.size(0))
+        meters["acc"].update(acc.item(), data.size(0))
+        meters["cbacc"].update(cbacc.item(), data.size(0))
 
-        meters['time'].update(timer.total)
+        meters["time"].update(timer.total)
 
-        print(f'Train [{i + 1}/{len(train_loader)}] '
-              f'CE: {meters["loss_ce"].avg:.4f} '
-              f'Q: {meters["loss_quan"].avg:.4f} '
-              f'T: {meters["loss_total"].avg:.4f} '
-              f'A(CE): {meters["acc"].avg:.4f} '
-              f'A(CB): {meters["cbacc"].avg:.4f} '
-              f'({timer.total:.2f}s / {total_timer.total:.2f}s)', end='\r')
+        print(
+            f"Train [{i + 1}/{len(train_loader)}] "
+            f'CE: {meters["loss_ce"].avg:.4f} '
+            f'Q: {meters["loss_quan"].avg:.4f} '
+            f'T: {meters["loss_total"].avg:.4f} '
+            f'A(CE): {meters["acc"].avg:.4f} '
+            f'A(CB): {meters["cbacc"].avg:.4f} '
+            f"({timer.total:.2f}s / {total_timer.total:.2f}s)",
+            end="\r",
+        )
 
     print()
     total_timer.toc()
 
-    meters['total_time'].update(total_timer.total)
+    meters["total_time"].update(total_timer.total)
 
     return meters
 
 
-def test_hashing(model, codebook, test_loader, loss_param, return_codes=False):
+def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, return_codes=False, **kwargs):
     model.eval()
-    device = loss_param['device']
+    device = loss_param["device"]
     meters = defaultdict(AverageMeter)
     total_timer = Timer()
     timer = Timer()
@@ -173,57 +178,58 @@ def test_hashing(model, codebook, test_loader, loss_param, return_codes=False):
         total_timer.toc()
 
         # store results
-        meters['loss_total'].update(loss.item(), data.size(0))
-        meters['loss_ce'].update(criterion.losses['ce'].item(), data.size(0))
-        meters['loss_quan'].update(criterion.losses['quan'].item(), data.size(0))
-        meters['acc'].update(acc.item(), data.size(0))
-        meters['cbacc'].update(cbacc.item(), data.size(0))
+        meters["loss_total"].update(loss.item(), data.size(0))
+        meters["loss_ce"].update(criterion.losses["ce"].item(), data.size(0))
+        meters["loss_quan"].update(criterion.losses["quan"].item(), data.size(0))
+        meters["acc"].update(acc.item(), data.size(0))
+        meters["cbacc"].update(cbacc.item(), data.size(0))
 
-        meters['time'].update(timer.total)
+        meters["time"].update(timer.total)
 
-        print(f'Test [{i + 1}/{len(test_loader)}] '
-              f'CE: {meters["loss_ce"].avg:.4f} '
-              f'Q: {meters["loss_quan"].avg:.4f} '
-              f'T: {meters["loss_total"].avg:.4f} '
-              f'A(CE): {meters["acc"].avg:.4f} '
-              f'A(CB): {meters["cbacc"].avg:.4f} '
-              f'({timer.total:.2f}s / {total_timer.total:.2f}s)', end='\r')
+        print(
+            f"Test [{i + 1}/{len(test_loader)}] "
+            f'CE: {meters["loss_ce"].avg:.4f} '
+            f'Q: {meters["loss_quan"].avg:.4f} '
+            f'T: {meters["loss_total"].avg:.4f} '
+            f'A(CE): {meters["acc"].avg:.4f} '
+            f'A(CB): {meters["cbacc"].avg:.4f} '
+            f"({timer.total:.2f}s / {total_timer.total:.2f}s)",
+            end="\r",
+        )
 
     print()
-    meters['total_time'].update(total_timer.total)
+    meters["total_time"].update(total_timer.total)
 
     if return_codes:
-        res = {
-            'codes': torch.cat(ret_codes),
-            'labels': torch.cat(ret_labels)
-        }
+        res = {"codes": torch.cat(ret_codes), "labels": torch.cat(ret_labels)}
         return meters, res
 
     return meters
 
 
 def prepare_dataloader(config):
-    logging.info('Creating Datasets')
-    train_dataset = configs.dataset(config, filename='train.txt', transform_mode='train')
+    """Prepares dataset and loads it"""
+    logging.info("Creating Datasets")
+    train_dataset = configs.dataset(config, filename="train.txt", transform_mode="train")
 
-    separate_multiclass = config['dataset_kwargs'].get('separate_multiclass', False)
-    config['dataset_kwargs']['separate_multiclass'] = False
-    test_dataset = configs.dataset(config, filename='test.txt', transform_mode='test')
-    db_dataset = configs.dataset(config, filename='database.txt', transform_mode='test')
-    config['dataset_kwargs']['separate_multiclass'] = separate_multiclass  # during mAP, no need to separate
+    separate_multiclass = config["dataset_kwargs"].get("separate_multiclass", False)
+    config["dataset_kwargs"]["separate_multiclass"] = False
+    test_dataset = configs.dataset(config, filename="test.txt", transform_mode="test")
+    db_dataset = configs.dataset(config, filename="database.txt", transform_mode="test")
+    config["dataset_kwargs"]["separate_multiclass"] = separate_multiclass  # during mAP, no need to separate
 
-    logging.info(f'Number of DB data: {len(db_dataset)}')
-    logging.info(f'Number of Train data: {len(train_dataset)}')
+    logging.info(f"Number of DB data: {len(db_dataset)}")
+    logging.info(f"Number of Train data: {len(train_dataset)}")
 
-    train_loader = configs.dataloader(train_dataset, config['batch_size'])
-    test_loader = configs.dataloader(test_dataset, config['batch_size'], shuffle=False, drop_last=False)
-    db_loader = configs.dataloader(db_dataset, config['batch_size'], shuffle=False, drop_last=False)
+    train_loader = configs.dataloader(train_dataset, config["batch_size"])
+    test_loader = configs.dataloader(test_dataset, config["batch_size"], shuffle=False, drop_last=False)
+    db_loader = configs.dataloader(db_dataset, config["batch_size"], shuffle=False, drop_last=False)
 
     return train_loader, test_loader, db_loader
 
 
-def prepare_model(config, device, codebook=None):
-    logging.info('Creating Model')
+def prepare_model(config, device, codebook=None) -> List[torch.nn.Module or Any]:
+    logging.info("Creating Model")
     model = configs.arch(config, codebook=codebook)
     extrabit = model.extrabit
     # if torch.cuda.device_count() > 1:
@@ -233,120 +239,133 @@ def prepare_model(config, device, codebook=None):
 
 
 def main(config):
-    device = torch.device(config.get('device', 'cuda:0'))
+    device = torch.device(config.get("device", "cuda:0"))
 
     io.init_save_queue()
 
     start_time = time.time()
-    configs.seeding(config['seed'])
+    configs.seeding(config["seed"])
 
-    logdir = config['logdir']
-    assert logdir != '', 'please input logdir'
+    logdir = config["logdir"]
+    assert logdir != "", "please input logdir"
 
     pprint(config)
 
-    os.makedirs(f'{logdir}/models', exist_ok=True)
-    os.makedirs(f'{logdir}/optims', exist_ok=True)
-    os.makedirs(f'{logdir}/outputs', exist_ok=True)
-    json.dump(config, open(f'{logdir}/config.json', 'w+'), indent=4, sort_keys=True)
+    os.makedirs(f"{logdir}/models", exist_ok=True)
+    os.makedirs(f"{logdir}/optims", exist_ok=True)
+    os.makedirs(f"{logdir}/outputs", exist_ok=True)
+    json.dump(config, open(f"{logdir}/config.json", "w+"), indent=4, sort_keys=True)
 
-    nclass = config['arch_kwargs']['nclass']
-    nbit = config['arch_kwargs']['nbit']
+    nclass = config["arch_kwargs"]["nclass"]
+    nbit = config["arch_kwargs"]["nbit"]
 
-    logging.info(f'Total Bit: {nbit}')
-    if config['codebook_generation'] == 'N':  # normal
+    logging.info(f"Total Bit: {nbit}")
+    if config["codebook_generation"] == "N":  # normal
+        # codebook of shape nclass,nbit
         codebook = torch.randn(nclass, nbit)
-    elif config['codebook_generation'] == 'B':  # bernoulli
+    elif config["codebook_generation"] == "B":  # bernoulli
         prob = torch.ones(nclass, nbit) * 0.5
-        codebook = torch.bernoulli(prob) * 2. - 1.
+        codebook = torch.bernoulli(prob) * 2.0 - 1.0
     else:  # O: optim
         codebook = get_codebook(nclass, nbit)
 
     codebook = codebook.sign().to(device)
-    io.fast_save(codebook, f'{logdir}/outputs/codebook.pth')
+    io.fast_save(codebook, f"{logdir}/outputs/codebook.pth")
 
     train_loader, test_loader, db_loader = prepare_dataloader(config)
     model, extrabit = prepare_model(config, device, codebook)
     print(model)
 
     backbone_lr_scale = 0.1
-    optimizer = configs.optimizer(config, [{'params': model.get_backbone_params(),
-                                            'lr': config['optim_kwargs']['lr'] * backbone_lr_scale},
-                                           {'params': model.get_hash_params()}])
+    optimizer = configs.optimizer(
+        config,
+        [
+            {"params": model.get_backbone_params(), "lr": config["optim_kwargs"]["lr"] * backbone_lr_scale},
+            {"params": model.get_hash_params()},
+        ],
+    )
+
+    # learning rate scheduler
     scheduler = configs.scheduler(config, optimizer)
 
     train_history = []
     test_history = []
 
     loss_param = config.copy()
-    loss_param.update({'device': device})
+    loss_param.update({"device": device})
 
     best = 0
     curr_metric = 0
 
-    nepochs = config['epochs']
-    neval = config['eval_interval']
+    nepochs = config["epochs"]
+    neval = config["eval_interval"]
 
-    logging.info('Training Start')
+    logging.info("Training Start")
 
     for ep in range(nepochs):
-        logging.info(f'Epoch [{ep + 1}/{nepochs}]')
-        res = {'ep': ep + 1}
+        logging.info(f"Epoch [{ep + 1}/{nepochs}]")
+        res = {"ep": ep + 1}
 
+        # train_hashing ?
         train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param)
+        # scheduler
         scheduler.step()
 
-        for key in train_meters: res['train_' + key] = train_meters[key].avg
+        for key in train_meters:
+            res["train_" + key] = train_meters[key].avg
         train_history.append(res)
         # train_outputs.append(train_out)
 
         eval_now = (ep + 1) == nepochs or (neval != 0 and (ep + 1) % neval == 0)
+        # evaluations of the network
         if eval_now:
-            res = {'ep': ep + 1}
+            res = {"ep": ep + 1}
 
             test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True)
             db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True)
 
-            for key in test_meters: res['test_' + key] = test_meters[key].avg
-            for key in db_meters: res['db_' + key] = db_meters[key].avg
+            for key in test_meters:
+                res["test_" + key] = test_meters[key].avg
+            for key in db_meters:
+                res["db_" + key] = db_meters[key].avg
 
-            res['mAP'] = calculate_mAP(db_out['codes'], db_out['labels'],
-                                       test_out['codes'], test_out['labels'],
-                                       loss_param['R'])
+            res["mAP"] = calculate_mAP(
+                db_out["codes"], db_out["labels"], test_out["codes"], test_out["labels"], loss_param["R"]
+            )
             logging.info(f'mAP: {res["mAP"]:.6f}')
 
-            curr_metric = res['mAP']
+            curr_metric = res["mAP"]
             test_history.append(res)
             # test_outputs.append(outs)
 
-        json.dump(train_history, open(f'{logdir}/train_history.json', 'w+'), indent=True, sort_keys=True)
+        json.dump(train_history, open(f"{logdir}/train_history.json", "w+"), indent=True, sort_keys=True)
         # io.fast_save(train_outputs, f'{logdir}/outputs/train_last.pth')
 
         if len(test_history) != 0:
-            json.dump(test_history, open(f'{logdir}/test_history.json', 'w+'), indent=True, sort_keys=True)
+            json.dump(test_history, open(f"{logdir}/test_history.json", "w+"), indent=True, sort_keys=True)
             # io.fast_save(test_outputs, f'{logdir}/outputs/test_last.pth')
 
         modelsd = model.state_dict()
         # optimsd = optimizer.state_dict()
         # io.fast_save(modelsd, f'{logdir}/models/last.pth')
         # io.fast_save(optimsd, f'{logdir}/optims/last.pth')
-        save_now = config['save_interval'] != 0 and (ep + 1) % config['save_interval'] == 0
+        save_now = config["save_interval"] != 0 and (ep + 1) % config["save_interval"] == 0
         if save_now:
-            io.fast_save(modelsd, f'{logdir}/models/ep{ep + 1}.pth')
+            io.fast_save(modelsd, f"{logdir}/models/ep{ep + 1}.pth")
             # io.fast_save(optimsd, f'{logdir}/optims/ep{ep + 1}.pth')
             # io.fast_save(train_outputs, f'{logdir}/outputs/train_ep{ep + 1}.pth')
 
         if best < curr_metric:
             best = curr_metric
-            io.fast_save(modelsd, f'{logdir}/models/best.pth')
+            io.fast_save(modelsd, f"{logdir}/models/best.pth")
 
     modelsd = model.state_dict()
-    io.fast_save(modelsd, f'{logdir}/models/last.pth')
+    io.fast_save(modelsd, f"{logdir}/models/last.pth")
     total_time = time.time() - start_time
     io.join_save_queue()
     logging.info(f'Training End at {datetime.today().strftime("%Y-%m-%d %H:%M:%S")}')
-    logging.info(f'Total time used: {total_time / (60 * 60):.2f} hours')
-    logging.info(f'Best mAP: {best:.6f}')
-    logging.info(f'Done: {logdir}')
+    logging.info(f"Total time used: {total_time / (60 * 60):.2f} hours")
+    logging.info(f"Best mAP: {best:.6f}")
+    logging.info(f"Done: {logdir}")
 
     return logdir
