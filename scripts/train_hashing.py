@@ -1,3 +1,4 @@
+from ctypes import Union
 import json
 import logging
 import os
@@ -5,8 +6,9 @@ import time
 from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
-from typing import Any, List
+from typing import Any, List, Tuple
 import torchvision
+from torch.utils.data import DataLoader
 
 import torch
 
@@ -145,7 +147,12 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
     return meters
 
 
+from neptune.new.types import File
+import pandas as pd
+
+
 def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, return_codes=False, **kwargs):
+    run = kwargs["run"]
     model.eval()
     device = loss_param["device"]
     meters = defaultdict(AverageMeter)
@@ -198,15 +205,28 @@ def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, retu
             end="\r",
         )
 
-        if kwargs and "one" in kwargs:
+        if kwargs and "run" in kwargs:
+            print("Running neptune")
+            run["val/batch_label"] = File.as_html(pd.DataFrame(labels.numpy()))
+            run["val/meters"] = {k: dict(v) for k, v in meters.items()}
+            run["val/logits"] = File.as_html(pd.DataFrame(logits.numpy()))
+            run["val/codes"] = File.as_html(pd.DataFrame(codes.numpy()))
+            run["val/hamm_dist"] = File.as_html(pd.DataFrame(hamm_dist.numpy()))
+
             # default norm = 2
             mean, std = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
-            testttt = NormalizeInverse(mean=mean, std=std)(data[0]) * 255
-            plt.imshow(testttt.int().permute(1, 2, 0))
-            plt.title(labels[0])
-            plt.show()
-            breakpoint()
-            break
+            print("Shape of data -> ", data.shape, labels.shape)
+
+            for j in range(data.shape[0]):
+                print("j : ", j, end="\r")
+                testttt = NormalizeInverse(mean=mean, std=std)(data[j]) * 255
+                fig, ax = plt.subplots()
+                ax.imshow(testttt.int().permute(1, 2, 0))
+                ax.set_title(labels[j])
+                run["val/batch"].log(fig)
+                plt.close()
+
+            exit()
 
     print()
     meters["total_time"].update(total_timer.total)
@@ -234,7 +254,7 @@ class NormalizeInverse(torchvision.transforms.Normalize):
         return super().__call__(tensor.clone())
 
 
-def prepare_dataloader(config):
+def prepare_dataloader(config) -> List[DataLoader]:
     """Prepares dataset and loads it"""
     logging.info("Creating Datasets")
     train_dataset = configs.dataset(config, filename="train.txt", transform_mode="train")
@@ -255,10 +275,11 @@ def prepare_dataloader(config):
     return train_loader, test_loader, db_loader
 
 
-def prepare_model(config, device, codebook=None) -> List[torch.nn.Module or Any]:
+def prepare_model(config, device, codebook=None) -> Tuple[torch.nn.Module, Any]:
     logging.info("Creating Model")
     model = configs.arch(config, codebook=codebook)
     extrabit = model.extrabit
+    logging.warning(f"Extrabit: {extrabit}")
     # if torch.cuda.device_count() > 1:
     #     model = torch.nn.DataParallel(model)
     model = model.to(device)

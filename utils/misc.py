@@ -19,6 +19,12 @@ class AverageMeter(object):
         self.count += n
         self.avg = self.sum / self.count
 
+    def __iter__(self):
+        yield ("val", getattr(self, "val"))
+        yield ("avg", getattr(self, "avg"))
+        yield ("sum", getattr(self, "sum"))
+        yield ("count", getattr(self, "count"))
+
 
 class Timer(object):
     def __init__(self):
@@ -36,7 +42,7 @@ class Timer(object):
         return self.end
 
     def print_time(self, title):
-        print(f'{title} time: {self.total:.4f}s')
+        print(f"{title} time: {self.total:.4f}s")
 
 
 def to_list(v):

@@ -3,3 +3,4 @@ logs/
 __pycache__/
 *.7z
 cifar10/
+.neptune/

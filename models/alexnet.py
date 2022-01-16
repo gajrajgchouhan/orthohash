@@ -30,17 +30,12 @@ class CosSim(nn.Module):
         return logits
 
     def extra_repr(self) -> str:
-        return 'in_features={}, n_class={}, learn_centroid={}'.format(
-            self.nfeat, self.nclass, self.learn_cent
-        )
+        return "in_features={}, n_class={}, learn_centroid={}".format(self.nfeat, self.nclass, self.learn_cent)
 
 
-@register_network('alexnet')
+@register_network("alexnet")
 class AlexNet(nn.Module):
-    def __init__(self,
-                 nbit, nclass, pretrained=False, freeze_weight=False,
-                 codebook=None,
-                 **kwargs):
+    def __init__(self, nbit, nclass, pretrained=False, freeze_weight=False, codebook=None, **kwargs):
         super(AlexNet, self).__init__()
 
         model = alexnet(pretrained=pretrained)
@@ -58,10 +53,7 @@ class AlexNet(nn.Module):
             # not learning cent, we are doing codebook learning
             self.ce_fc = CosSim(nbit, nclass, codebook, learn_cent=False)
 
-        self.hash_fc = nn.Sequential(
-            nn.Linear(in_features, nbit, bias=False),
-            nn.BatchNorm1d(nbit, momentum=0.1)
-        )
+        self.hash_fc = nn.Sequential(nn.Linear(in_features, nbit, bias=False), nn.BatchNorm1d(nbit, momentum=0.1))
 
         nn.init.normal_(self.hash_fc[0].weight, std=0.01)
         # nn.init.zeros_(self.hash_fc.bias)

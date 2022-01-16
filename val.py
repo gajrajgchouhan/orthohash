@@ -1,5 +1,12 @@
 import argparse
 import json
+import neptune.new as neptune
+
+run = neptune.init(
+    project="gajrajgchouhan/HashingProject",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI1N2ViYzI5Yy0zY2U4LTQ1ZDItYmVmOS04OGE2Mjg3MjA1MWYifQ==",
+)  # your credentials
+
 
 from scripts import test_hashing
 
@@ -19,4 +26,4 @@ config.update({"device": args.device})
 config.update({"one": args.one})
 print(args.one)
 
-test_hashing.main(config)
+test_hashing.main(config, run)

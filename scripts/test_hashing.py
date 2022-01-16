@@ -1,10 +1,10 @@
 import json
 import os
-import time
 from datetime import datetime
 from pprint import pprint
 
 import torch
+import time
 
 import configs
 from functions.hashing import calculate_mAP
@@ -12,7 +12,7 @@ from scripts.train_hashing import prepare_dataloader, prepare_model, test_hashin
 from utils import io
 
 
-def main(config):
+def main(config, run):
     device = torch.device(config["device"])
     io.init_save_queue()
 
@@ -48,12 +48,9 @@ def main(config):
     loss_param = config.copy()
     loss_param["device"] = device
 
-    print("Testing Start")
-
     res = {}
-    breakpoint()
-    test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True, one=config["one"])
-    db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True)
+    test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True, one=config["one"], run=run)
+    db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True, run=run)
 
     for key in test_meters:
         res["test_" + key] = test_meters[key].avg
