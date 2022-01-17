@@ -106,9 +106,10 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         data, labels = data.to(device), labels.to(device)
         logits, codes = model(data)
 
-        if i == 0:
-            run[f"train/ep_{ep}/labels"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
-            run[f"train/ep_{ep}/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
+        with torch.no_grad():
+            if i == 0:
+                run[f"train/ep_{ep}/labels"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
+                run[f"train/ep_{ep}/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
 
         bs, nbit = codes.size()
         nclass = labels.size(1)
