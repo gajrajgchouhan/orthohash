@@ -106,8 +106,8 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         data, labels = data.to(device), labels.to(device)
         logits, codes = model(data)
 
-        run["train/labels"].log(labels.numpy())
-        run["train/codes"].log(codes.numpy())
+        run["train/labels"].log(labels.cpu().numpy())
+        run["train/codes"].log(codes.cpu().numpy())
 
         bs, nbit = codes.size()
         nclass = labels.size(1)
