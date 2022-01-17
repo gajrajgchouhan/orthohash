@@ -376,8 +376,8 @@ def main(config, run):
         if eval_now:
             res = {"ep": ep + 1}
 
-            test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True)
-            db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True)
+            test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True, run=run)
+            db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True, run=run)
 
             for key in test_meters:
                 res["test_" + key] = test_meters[key].avg
