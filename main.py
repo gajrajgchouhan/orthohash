@@ -6,6 +6,13 @@ import torch
 
 import configs
 from scripts import train_hashing
+import neptune.new as neptune
+
+run = neptune.init(
+    project="gajrajgchouhan/HashingProject",
+    api_token="eyJhcGlfYWRkcmVzcyI6Imh0dHBzOi8vYXBwLm5lcHR1bmUuYWkiLCJhcGlfdXJsIjoiaHR0cHM6Ly9hcHAubmVwdHVuZS5haSIsImFwaV9rZXkiOiI1N2ViYzI5Yy0zY2U4LTQ1ZDItYmVmOS04OGE2Mjg3MjA1MWYifQ==",
+)  # your credentials
+
 
 # this is establishing the logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(asctime)s: %(message)s", datefmt="%d-%m-%y %H:%M:%S")
@@ -127,4 +134,4 @@ orig_logdir = logdir
 logdir = orig_logdir + f"{count:03d}"
 
 # start training
-train_hashing.main(config)
+train_hashing.main(config, run)

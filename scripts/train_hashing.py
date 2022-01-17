@@ -18,6 +18,8 @@ from functions.loss.orthohash import OrthoHashLoss
 from utils import io
 from utils.misc import AverageMeter, Timer
 import matplotlib.pyplot as plt
+from neptune.new.types import File
+import pandas as pd
 
 
 def get_hd(a, b):
@@ -81,7 +83,7 @@ def calculate_accuracy(logits, hamm_dist, labels, loss_param):
     return acc, cbacc
 
 
-def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param):
+def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param, run):
     model.train()
     device = loss_param["device"]
     meters = defaultdict(AverageMeter)
@@ -103,6 +105,9 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
 
         data, labels = data.to(device), labels.to(device)
         logits, codes = model(data)
+
+        run["train/labels"].log(labels.numpy())
+        run["train/codes"].log(codes.numpy())
 
         bs, nbit = codes.size()
         nclass = labels.size(1)
@@ -126,6 +131,9 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         meters["acc"].update(acc.item(), data.size(0))
         meters["cbacc"].update(cbacc.item(), data.size(0))
 
+        run["train/loss"].log(dict(meters["loss_total"])["val"])
+        # run["train/meters"] = {k: dict(v) for k, v in meters.items()}
+
         meters["time"].update(timer.total)
 
         print(
@@ -145,10 +153,6 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
     meters["total_time"].update(total_timer.total)
 
     return meters
-
-
-from neptune.new.types import File
-import pandas as pd
 
 
 def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, return_codes=False, **kwargs):
@@ -286,7 +290,7 @@ def prepare_model(config, device, codebook=None) -> Tuple[torch.nn.Module, Any]:
     return model, extrabit
 
 
-def main(config):
+def main(config, run):
     device = torch.device(config.get("device", "cuda:0"))
 
     io.init_save_queue()
@@ -298,6 +302,7 @@ def main(config):
     assert logdir != "", "please input logdir"
 
     pprint(config)
+    run["train/config"] = config
 
     os.makedirs(f"{logdir}/models", exist_ok=True)
     os.makedirs(f"{logdir}/optims", exist_ok=True)
@@ -355,7 +360,7 @@ def main(config):
         res = {"ep": ep + 1}
 
         # train_hashing ?
-        train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param)
+        train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param, run)
         # scheduler
         scheduler.step()
 
