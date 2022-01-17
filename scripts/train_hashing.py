@@ -106,8 +106,8 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         data, labels = data.to(device), labels.to(device)
         logits, codes = model(data)
 
-        run["train/labels"].log(labels.cpu().numpy())
-        run["train/codes"].log(codes.cpu().numpy())
+        run["train/labels"].log(File.as_html(pd.DataFrame(labels.cpu().numpy())))
+        run["train/codes"].log(File.as_html(pd.DataFrame(codes.cpu().numpy())))
 
         bs, nbit = codes.size()
         nclass = labels.size(1)
@@ -211,11 +211,11 @@ def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, retu
 
         if kwargs and "run" in kwargs:
             print("Running neptune")
-            run["val/batch_label"] = File.as_html(pd.DataFrame(labels.numpy()))
+            run["val/batch_label"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
             run["val/meters"] = {k: dict(v) for k, v in meters.items()}
-            run["val/logits"] = File.as_html(pd.DataFrame(logits.numpy()))
-            run["val/codes"] = File.as_html(pd.DataFrame(codes.numpy()))
-            run["val/hamm_dist"] = File.as_html(pd.DataFrame(hamm_dist.numpy()))
+            run["val/logits"] = File.as_html(pd.DataFrame(logits.cpu().numpy()))
+            run["val/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
+            run["val/hamm_dist"] = File.as_html(pd.DataFrame(hamm_dist.cpu().numpy()))
 
             # default norm = 2
             mean, std = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
