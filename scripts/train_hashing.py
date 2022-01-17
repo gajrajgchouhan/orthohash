@@ -83,7 +83,7 @@ def calculate_accuracy(logits, hamm_dist, labels, loss_param):
     return acc, cbacc
 
 
-def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param, run):
+def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param, run, ep):
     model.train()
     device = loss_param["device"]
     meters = defaultdict(AverageMeter)
@@ -106,8 +106,9 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         data, labels = data.to(device), labels.to(device)
         logits, codes = model(data)
 
-        run["train/labels"].log(File.as_html(pd.DataFrame(labels.cpu().numpy())))
-        run["train/codes"].log(File.as_html(pd.DataFrame(codes.cpu().numpy())))
+        if i == 0:
+            run[f"train/ep_{ep}/labels"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
+            run[f"train/ep_{ep}/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
 
         bs, nbit = codes.size()
         nclass = labels.size(1)
@@ -131,8 +132,8 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         meters["acc"].update(acc.item(), data.size(0))
         meters["cbacc"].update(cbacc.item(), data.size(0))
 
-        run["train/loss"].log(dict(meters["loss_total"])["val"])
-        # run["train/meters"] = {k: dict(v) for k, v in meters.items()}
+        if i == 0:
+            run[f"train/ep_{ep}/loss"] = dict(meters["loss_total"])["val"]
 
         meters["time"].update(timer.total)
 
@@ -360,7 +361,7 @@ def main(config, run):
         res = {"ep": ep + 1}
 
         # train_hashing ?
-        train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param, run)
+        train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param, run, ep)
         # scheduler
         scheduler.step()
 
