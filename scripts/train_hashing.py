@@ -377,8 +377,8 @@ def main(config, run):
 
             transform_ = configs.compose_transform("test", resizec, cropc, norm)
             logits_, codes_ = deploy.get(model, transform_, device, 0, 0)
-            run[f"train/epoch_{ep}/logits"] = np.array(logits_)
-            run[f"train/epoch_{ep}/codes_"] = np.array(codes_)
+            run[f"train/epoch_{ep}/logits"] = np.array(logits_.cpu())
+            run[f"train/epoch_{ep}/codes_"] = np.array(codes_.cpu())
 
             res = {"ep": ep + 1}
 
