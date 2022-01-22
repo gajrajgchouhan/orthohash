@@ -1,6 +1,8 @@
 from typing import List
 from extract_data import ExperimentDataset
 from PIL import Image
+from torchvision import transforms
+
 
 # python3 deploy.py -l logs/alexnet64_cifar10_1_100_0.0001_adam_1.0/orthohash_59209_000/ -device cpu
 
@@ -73,11 +75,13 @@ class Deploy:
     def __init__(self):
         self.dataset = ExperimentDataset()
 
-    def get(self, model, transform, cls, idx) -> List[torch.Tensor]:
+    def get(self, model, transform: transforms.Compose, device, cls, idx) -> List[torch.Tensor]:
+        model.eval()
         label, data = self.dataset.__getitem__(cls, idx)
         data = Image.fromarray(data)
-        transformed_data = transform(data)
+        transformed_data: torch.Tensor = transform(data)
         transformed_data = transformed_data[None, ...]
+        transformed_data = transformed_data.to(device)
 
         with torch.no_grad():
             logits, codes = model(transformed_data)

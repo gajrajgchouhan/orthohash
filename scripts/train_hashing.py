@@ -376,7 +376,7 @@ def main(config, run):
             cropc = 0 if crop == 32 else crop
 
             transform_ = configs.compose_transform("test", resizec, cropc, norm)
-            logits_, codes_ = deploy.get(model, transform_, 0, 0)
+            logits_, codes_ = deploy.get(model, transform_, device, 0, 0)
             run[f"train/epoch_{ep}/logits"] = np.array(logits_)
             run[f"train/epoch_{ep}/codes_"] = np.array(codes_)
 
