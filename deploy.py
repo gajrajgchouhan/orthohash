@@ -1,24 +1,10 @@
-import argparse
-import json
-from pprint import pprint
-from collections import defaultdict
 from typing import List
-
-import numpy as np
-
 from extract_data import ExperimentDataset
-from utils.misc import AverageMeter
 from PIL import Image
-from matplotlib import pyplot as plt
 
 # python3 deploy.py -l logs/alexnet64_cifar10_1_100_0.0001_adam_1.0/orthohash_59209_000/ -device cpu
 
 import torch
-import configs
-from scripts.train_hashing import prepare_model
-from utils import io
-from configs import compose_transform
-
 
 # parser = argparse.ArgumentParser()
 # parser.add_argument("-l", required=True, help="training logdir")
