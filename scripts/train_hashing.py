@@ -345,7 +345,7 @@ def main(config, run):
     curr_metric = 0
 
     nepochs = config["epochs"]
-    neval = 1
+    neval = config["eval_interval"]
     deploy = Deploy()
 
     logging.info("Training Start")
@@ -366,19 +366,22 @@ def main(config, run):
 
         eval_now = (ep + 1) == nepochs or (neval != 0 and (ep + 1) % neval == 0)
         # evaluations of the network
+
+        ###############################################################
+        resize = config["dataset_kwargs"].get("resize", 0)
+        crop = config["dataset_kwargs"].get("crop", 0)
+        norm = config["dataset_kwargs"].get("norm", 2)
+
+        resizec = 0 if resize == 32 else resize
+        cropc = 0 if crop == 32 else crop
+
+        transform_ = configs.compose_transform("test", resizec, cropc, norm)
+        logits_, codes_ = deploy.get(model, transform_, device, 0, 0)
+        run[f"train/epoch_{ep}/logits"] = np.array(logits_.cpu())
+        run[f"train/epoch_{ep}/codes_"] = np.array(codes_.cpu())
+        ################################################################
+
         if eval_now:
-
-            resize = config["dataset_kwargs"].get("resize", 0)
-            crop = config["dataset_kwargs"].get("crop", 0)
-            norm = config["dataset_kwargs"].get("norm", 2)
-
-            resizec = 0 if resize == 32 else resize
-            cropc = 0 if crop == 32 else crop
-
-            transform_ = configs.compose_transform("test", resizec, cropc, norm)
-            logits_, codes_ = deploy.get(model, transform_, device, 0, 0)
-            run[f"train/epoch_{ep}/logits"] = np.array(logits_.cpu())
-            run[f"train/epoch_{ep}/codes_"] = np.array(codes_.cpu())
 
             res = {"ep": ep + 1}
 
