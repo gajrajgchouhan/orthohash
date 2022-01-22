@@ -73,7 +73,7 @@ class Deploy:
     def __init__(self):
         self.dataset = ExperimentDataset()
 
-    def get(self, model, transform, cls, idx) -> List[torch.Tensor, torch.Tensor]:
+    def get(self, model, transform, cls, idx) -> List[torch.Tensor]:
         label, data = self.dataset.__getitem__(cls, idx)
         data = Image.fromarray(data)
         transformed_data = transform(data)
