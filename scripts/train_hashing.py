@@ -7,12 +7,14 @@ from collections import defaultdict
 from datetime import datetime
 from pprint import pprint
 from typing import Any, List, Tuple
+import numpy as np
 import torchvision
 from torch.utils.data import DataLoader
 
 import torch
 
 import configs
+from deploy import Deploy
 from functions.hashing import get_hamm_dist, calculate_mAP
 from functions.loss.orthohash import OrthoHashLoss
 from utils import io
@@ -83,7 +85,7 @@ def calculate_accuracy(logits, hamm_dist, labels, loss_param):
     return acc, cbacc
 
 
-def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param, run, ep):
+def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, loss_param, ep):
     model.train()
     device = loss_param["device"]
     meters = defaultdict(AverageMeter)
@@ -105,11 +107,6 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
 
         data, labels = data.to(device), labels.to(device)
         logits, codes = model(data)
-
-        with torch.no_grad():
-            if i == 0:
-                run[f"train/ep_{ep}/labels"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
-                run[f"train/ep_{ep}/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
 
         bs, nbit = codes.size()
         nclass = labels.size(1)
@@ -133,9 +130,6 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
         meters["acc"].update(acc.item(), data.size(0))
         meters["cbacc"].update(cbacc.item(), data.size(0))
 
-        if i == 0:
-            run[f"train/ep_{ep}/loss"] = dict(meters["loss_total"])["val"]
-
         meters["time"].update(timer.total)
 
         print(
@@ -158,7 +152,6 @@ def train_hashing(optimizer, model: torch.nn.Module, codebook, train_loader, los
 
 
 def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, return_codes=False, **kwargs):
-    run = kwargs["run"]
     model.eval()
     device = loss_param["device"]
     meters = defaultdict(AverageMeter)
@@ -211,28 +204,28 @@ def test_hashing(model: torch.nn.Module, codebook, test_loader, loss_param, retu
             end="\r",
         )
 
-        if kwargs and "run" in kwargs:
-            print("Running neptune")
-            run["val/batch_label"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
-            run["val/meters"] = {k: dict(v) for k, v in meters.items()}
-            run["val/logits"] = File.as_html(pd.DataFrame(logits.cpu().numpy()))
-            run["val/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
-            run["val/hamm_dist"] = File.as_html(pd.DataFrame(hamm_dist.cpu().numpy()))
+        # if kwargs and "run" in kwargs:
+        #     print("Running neptune")
+        #     run["val/batch_label"] = File.as_html(pd.DataFrame(labels.cpu().numpy()))
+        #     run["val/meters"] = {k: dict(v) for k, v in meters.items()}
+        #     run["val/logits"] = File.as_html(pd.DataFrame(logits.cpu().numpy()))
+        #     run["val/codes"] = File.as_html(pd.DataFrame(codes.cpu().numpy()))
+        #     run["val/hamm_dist"] = File.as_html(pd.DataFrame(hamm_dist.cpu().numpy()))
 
-            # default norm = 2
-            mean, std = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
-            print("Shape of data -> ", data.shape, labels.shape)
+        #     # default norm = 2
+        #     mean, std = [[0.485, 0.456, 0.406], [0.229, 0.224, 0.225]]
+        #     print("Shape of data -> ", data.shape, labels.shape)
 
-            for j in range(data.shape[0]):
-                print("j : ", j, end="\r")
-                testttt = NormalizeInverse(mean=mean, std=std)(data[j]) * 255
-                fig, ax = plt.subplots()
-                ax.imshow(testttt.int().permute(1, 2, 0))
-                ax.set_title(labels[j])
-                run["val/batch"].log(fig)
-                plt.close()
+        #     for j in range(data.shape[0]):
+        #         print("j : ", j, end="\r")
+        #         testttt = NormalizeInverse(mean=mean, std=std)(data[j]) * 255
+        #         fig, ax = plt.subplots()
+        #         ax.imshow(testttt.int().permute(1, 2, 0))
+        #         ax.set_title(labels[j])
+        #         run["val/batch"].log(fig)
+        #         plt.close()
 
-            exit()
+        #     exit()
 
     print()
     meters["total_time"].update(total_timer.total)
@@ -304,7 +297,6 @@ def main(config, run):
     assert logdir != "", "please input logdir"
 
     pprint(config)
-    run["train/config"] = config
 
     os.makedirs(f"{logdir}/models", exist_ok=True)
     os.makedirs(f"{logdir}/optims", exist_ok=True)
@@ -353,7 +345,8 @@ def main(config, run):
     curr_metric = 0
 
     nepochs = config["epochs"]
-    neval = config["eval_interval"]
+    neval = 1
+    deploy = Deploy()
 
     logging.info("Training Start")
 
@@ -362,7 +355,7 @@ def main(config, run):
         res = {"ep": ep + 1}
 
         # train_hashing ?
-        train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param, run, ep)
+        train_meters = train_hashing(optimizer, model, codebook, train_loader, loss_param, ep)
         # scheduler
         scheduler.step()
 
@@ -374,10 +367,23 @@ def main(config, run):
         eval_now = (ep + 1) == nepochs or (neval != 0 and (ep + 1) % neval == 0)
         # evaluations of the network
         if eval_now:
+
+            resize = config["dataset_kwargs"].get("resize", 0)
+            crop = config["dataset_kwargs"].get("crop", 0)
+            norm = config["dataset_kwargs"].get("norm", 2)
+
+            resizec = 0 if resize == 32 else resize
+            cropc = 0 if crop == 32 else crop
+
+            transform_ = configs.compose_transform("test", resizec, cropc, norm)
+            logits_, codes_ = deploy.get(model, transform_, 0, 0)
+            run[f"train/epoch_{ep}/logits"] = np.array(logits_)
+            run[f"train/epoch_{ep}/codes_"] = np.array(codes_)
+
             res = {"ep": ep + 1}
 
-            test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True, run=run)
-            db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True, run=run)
+            test_meters, test_out = test_hashing(model, codebook, test_loader, loss_param, True)
+            db_meters, db_out = test_hashing(model, codebook, db_loader, loss_param, True)
 
             for key in test_meters:
                 res["test_" + key] = test_meters[key].avg
