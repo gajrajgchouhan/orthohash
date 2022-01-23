@@ -379,7 +379,7 @@ def main(config, run):
             transform_ = configs.compose_transform("test", resizec, cropc, norm)
             logits_, codes_ = deploy.get_cls(model, transform_, device, 0)
             run[f"train/epoch_{ep}/logits"] = np.array([i_.cpu().numpy() for i_ in logits_])
-            run[f"train/epoch_{ep}/codes_"] = np.array([i_.cpu().numpy() for i_ in codes_])
+            run[f"train/epoch_{ep}/codes_"] = np.array([i_.cpu().sign().numpy() for i_ in codes_])
         ################################################################
 
         if eval_now:
