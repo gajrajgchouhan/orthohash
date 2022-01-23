@@ -28,14 +28,14 @@ def get_hamm_dist(codes, centroids, margin=0, normalize=False):
 
 def get_codes_and_labels(model, loader):
     if torch.cuda.is_available():
-        device = torch.device('cuda')
+        device = torch.device("cuda")
     else:
-        device = torch.device('cpu')
+        device = torch.device("cpu")
 
     vs = []
     ts = []
     for e, (d, t) in enumerate(loader):
-        print(f'[{e + 1}/{len(loader)}]', end='\r')
+        print(f"[{e + 1}/{len(loader)}]", end="\r")
         with torch.no_grad():
             # model forward
             d, t = d.to(device), t.to(device)
@@ -52,9 +52,7 @@ def get_codes_and_labels(model, loader):
     return vs, ts
 
 
-def calculate_mAP(db_codes, db_labels,
-                  test_codes, test_labels,
-                  R, threshold=0.):
+def calculate_mAP(db_codes, db_labels, test_codes, test_labels, R, threshold=0.0):
     # clone in case changing value of the original codes
     db_codes = db_codes.clone()
     test_codes = test_codes.clone()
@@ -88,7 +86,7 @@ def calculate_mAP(db_codes, db_labels,
         for i, db_code in enumerate(db_codes_loader):
             dist.append(0.5 * (nbit - torch.matmul(test_codes, db_code.t())).cpu())
             timer.toc()
-            print(f'Distance [{i + 1}/{len(db_codes_loader)}] ({timer.total:.2f}s)', end='\r')
+            print(f"Distance [{i + 1}/{len(db_codes_loader)}] ({timer.total:.2f}s)", end="\r")
 
         dist = torch.cat(dist, 1)  # .numpy()
         print()
@@ -101,7 +99,7 @@ def calculate_mAP(db_codes, db_labels,
     # torch sorting is quite fast, pytorch ftw!!!
     topk_ids = torch.topk(dist, R, dim=1, largest=False)[1].cpu()
     timer.toc()
-    print(f'Sorting ({timer.total:.2f}s)')
+    print(f"Sorting ({timer.total:.2f}s)")
 
     # calculate mAP
     timer.tick()
@@ -111,7 +109,7 @@ def calculate_mAP(db_codes, db_labels,
         label[label == 0] = -1
         idx = topk_ids[i, :]
         # idx = idx[np.argsort(dist[i, :][idx])]
-        imatch = np.sum(np.equal(db_labels[idx[0: R], :], label), 1) > 0
+        imatch = np.sum(np.equal(db_labels[idx[0:R], :], label), 1) > 0
         rel = np.sum(imatch)
         Lx = np.cumsum(imatch)
         Px = Lx.astype(float) / np.arange(1, R + 1, 1)
@@ -120,11 +118,11 @@ def calculate_mAP(db_codes, db_labels,
         else:  # didn't retrieve anything relevant
             APx.append(0)
         timer.toc()
-        print(f'Query [{i + 1}/{dist.shape[0]}] ({timer.total:.2f}s)', end='\r')
+        print(f"Query [{i + 1}/{dist.shape[0]}] ({timer.total:.2f}s)", end="\r")
 
     print()
     total_timer.toc()
-    logging.info(f'Total time usage for calculating mAP: {total_timer.total:.2f}s')
+    logging.info(f"Total time usage for calculating mAP: {total_timer.total:.2f}s")
 
     return np.mean(np.array(APx))
 
@@ -133,7 +131,7 @@ def sign_dist(inputs, centroids, margin=0):
     n, b1 = inputs.size()
     nclass, b2 = centroids.size()
 
-    assert b1 == b2, 'inputs and centroids must have same number of bit'
+    assert b1 == b2, "inputs and centroids must have same number of bit"
 
     # sl = relu(margin - x*y)
     out = inputs.view(n, 1, b1) * centroids.sign().view(1, nclass, b1)

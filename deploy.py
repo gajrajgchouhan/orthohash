@@ -87,6 +87,15 @@ class Deploy:
             logits, codes = model(transformed_data)
             return logits, codes
 
+    def get_cls(self, model: transforms.Compose, transform, device, cls):
+        all_logits = []
+        all_codes = []
+        for idx in range(10):
+            logits, codes = self.get(model, transform, device, cls, idx)
+            all_logits.append(logits)
+            all_codes.append(codes)
+        return all_logits, all_codes
+
     def get_all(self, model, transform):
         for cls in range(10):
             for idx in range(10):
